@@ -1,0 +1,60 @@
+@page "/budgets"
+@inherits LedgerPage
+
+<div class="page page-narrow">
+    <div class="page-head">
+        <div>
+            <h1>Budgets</h1>
+            <p class="lede">Simple monthly targets versus actual spending by category.</p>
+        </div>
+        @if (view is not null)
+        {
+            <div class="month-switch">
+                <a class="btn btn-ghost" href="@($"budgets?month={CalendarDates.ShiftMonth(view.Month, -1)}")">Previous</a>
+                <p>@CalendarDates.FormatMonthLabel(view.Month)</p>
+                <a class="btn btn-ghost" href="@($"budgets?month={CalendarDates.ShiftMonth(view.Month, 1)}")">Next</a>
+            </div>
+        }
+    </div>
+
+    @if (view is null)
+    {
+        <LedgerMessage Error="@Ledger.Error" Loading="@Ledger.IsLoading" />
+    }
+    else
+    {
+        <section class="stats">
+            <article class="card">
+                <p class="label">Budgeted</p>
+                <p class="figure"><MoneyText Cents="view.BudgetedCents" /></p>
+            </article>
+            <article class="card">
+                <p class="label">Spent</p>
+                <p class="figure"><MoneyText Cents="view.ActualCents" /></p>
+            </article>
+        </section>
+        <BudgetEditor @key="view.Month" Month="view.Month" Rows="view.Rows" />
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Month { get; set; }
+
+    private BudgetView? view;
+
+    protected override void OnLedgerChanged() => Refresh();
+
+    protected override void OnParametersSet() => Refresh();
+
+    private void Refresh()
+    {
+        if (Ledger.Snapshot is null)
+        {
+            view = null;
+            return;
+        }
+
+        var month = CalendarDates.IsMonth(Month) ? Month! : CalendarDates.CurrentMonth();
+        view = LedgerViews.Budgets(Ledger.Snapshot, month);
+    }
+}

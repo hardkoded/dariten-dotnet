@@ -1,0 +1,84 @@
+name: Azure Static Web Apps
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build_and_deploy:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    runs-on: ubuntu-latest
+    name: Build and deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build -c Release
+
+      - name: Unit tests
+        run: dotnet test tests/Dariten.Unit/Dariten.Unit.csproj -c Release --no-build
+
+      - name: Publish Blazor WebAssembly
+        run: dotnet publish src/Dariten/Dariten.csproj -c Release -o published
+
+      - name: Check for the Static Web Apps token
+        id: swa
+        env:
+          SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+        run: |
+          if [ -n "$SWA_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "AZURE_STATIC_WEB_APPS_API_TOKEN is not set. The site was published in this job but will not be deployed."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy to Azure Static Web Apps
+        if: steps.swa.outputs.enabled == 'true'
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: published/wwwroot
+          api_location: ""
+          output_location: ""
+          skip_app_build: true
+
+  close_pull_request:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Close pull request environment
+    steps:
+      - name: Check for the Static Web Apps token
+        id: swa
+        env:
+          SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+        run: |
+          if [ -n "$SWA_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "AZURE_STATIC_WEB_APPS_API_TOKEN is not set. Nothing to close."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Close the preview environment
+        if: steps.swa.outputs.enabled == 'true'
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: close

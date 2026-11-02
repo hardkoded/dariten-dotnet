@@ -1,0 +1,96 @@
+@inject LedgerService Ledger
+
+<form class="panel table-wrap" @onsubmit="Save">
+    <table>
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Budget</th>
+                <th>Actual</th>
+                <th>Remaining</th>
+                <th>Progress</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Rows)
+            {
+                var categoryId = row.CategoryId;
+                var progress = Finance.BudgetProgress(row.BudgetCents, row.ActualCents);
+                <tr>
+                    <td>
+                        <div>@row.Name</div>
+                        <div class="tiny muted">@row.Group</div>
+                    </td>
+                    <td>
+                        <input class="budget-input" aria-label="@($"Budget for {row.Name}")" value="@amounts[categoryId]" @onchange="e => SetAmount(categoryId, e)" />
+                    </td>
+                    <td><MoneyText Cents="row.ActualCents" /></td>
+                    <td><MoneyText Cents="progress.RemainingCents" Tone="signed" /></td>
+                    <td>
+                        <div class="track" aria-hidden="true">
+                            <span class="@(progress.Over ? "over" : null)" style="width: @(progress.Percent)%"></span>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="save-bar">
+        <button type="submit" class="btn btn-primary" disabled="@pending">@(pending ? "Saving…" : "Save budgets")</button>
+        @if (error is not null)
+        {
+            <p class="alert" role="alert">@error</p>
+        }
+        @if (message is not null)
+        {
+            <p class="moss" role="status">@message</p>
+        }
+    </div>
+</form>
+
+@code {
+    [Parameter] public string Month { get; set; } = "";
+    [Parameter] public IReadOnlyList<BudgetRowView> Rows { get; set; } = [];
+
+    private readonly Dictionary<string, string> amounts = new();
+    private string? stamp;
+    private string? error;
+    private string? message;
+    private bool pending;
+
+    protected override void OnParametersSet()
+    {
+        var next = Month + "|" + string.Join(',', Rows.Select(row => row.CategoryId));
+        if (next == stamp)
+        {
+            return;
+        }
+
+        stamp = next;
+        amounts.Clear();
+        foreach (var row in Rows)
+        {
+            amounts[row.CategoryId] = Money.CentsToDollarInput(row.BudgetCents);
+        }
+    }
+
+    private void SetAmount(string categoryId, ChangeEventArgs e) =>
+        amounts[categoryId] = e.Value?.ToString() ?? string.Empty;
+
+    private async Task Save()
+    {
+        pending = true;
+        error = null;
+        message = null;
+        var items = Rows.Select(row => new BudgetItemInput(row.CategoryId, amounts.GetValueOrDefault(row.CategoryId) ?? "0")).ToList();
+        var result = await Ledger.SaveBudgetsAsync(new BudgetBatchInput(Month, items));
+        pending = false;
+        if (!result.Ok)
+        {
+            error = result.Error;
+            return;
+        }
+
+        message = "Budget saved.";
+    }
+}

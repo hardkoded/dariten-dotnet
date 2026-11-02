@@ -1,0 +1,67 @@
+@inject LedgerService Ledger
+
+<div class="banner" data-testid="demo-banner">
+    <p>
+        Local demo — no login. This browser keeps its own sample household. Do not enter real bank data.
+        <button type="button" @onclick="AskReset" disabled="@pending">@(pending ? "Resetting…" : "Reset sample data")</button>
+    </p>
+    @if (error is not null)
+    {
+        <p class="alert" role="alert">@error</p>
+    }
+</div>
+
+@if (confirming)
+{
+    <div class="backdrop" @onclick="Cancel">
+        <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="reset-title" @onclick:stopPropagation="true">
+            <div class="modal-head">
+                <h2 id="reset-title">Reset sample data</h2>
+            </div>
+            <p>Replace this browser's ledger with the original sample household? Edits in this browser will be discarded.</p>
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary" @onclick="ConfirmReset" disabled="@pending">Replace sample data</button>
+                <button type="button" class="btn btn-ghost" @onclick="Cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool confirming;
+    private bool pending;
+    private string? error;
+
+    private void AskReset()
+    {
+        error = null;
+        confirming = true;
+    }
+
+    private void Cancel() => confirming = false;
+
+    private async Task ConfirmReset()
+    {
+        pending = true;
+        error = null;
+        try
+        {
+            var result = await Ledger.ResetSampleAsync();
+            if (!result.Ok)
+            {
+                error = result.Error;
+                return;
+            }
+
+            confirming = false;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            pending = false;
+        }
+    }
+}

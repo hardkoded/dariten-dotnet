@@ -1,0 +1,115 @@
+@page "/transactions"
+@inherits LedgerPage
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h1>Transactions</h1>
+            <p class="lede">Filter the register, add activity, or export the current view as CSV.</p>
+        </div>
+        @if (accounts is not null && categories is not null)
+        {
+            <div class="actions">
+                <button type="button" class="btn btn-ghost" @onclick="Export">Export CSV</button>
+                <TransactionEditor Accounts="accounts" Categories="categories" />
+            </div>
+        }
+    </div>
+
+    @if (accounts is null || categories is null || transactions is null)
+    {
+        <LedgerMessage Error="@Ledger.Error" Loading="@Ledger.IsLoading" />
+    }
+    else
+    {
+        <RegisterFilters Accounts="accounts" Categories="categories" AccountId="@AccountId" CategoryId="@CategoryId" From="@From" To="@To" />
+        <div class="panel table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Payee</th>
+                        <th>Category</th>
+                        <th>Account</th>
+                        <th>Memo</th>
+                        <th class="num">Amount</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var transaction in transactions)
+                    {
+                        <tr>
+                            <td class="muted">@CalendarDates.FormatDateOnly(transaction.Date)</td>
+                            <td>@transaction.Payee</td>
+                            <td>@transaction.CategoryName</td>
+                            <td>@transaction.AccountName</td>
+                            <td class="muted">@(transaction.Memo ?? "—")</td>
+                            <td class="num"><MoneyText Cents="transaction.AmountCents" Tone="signed" /></td>
+                            <td class="num">
+                                <TransactionEditor Accounts="accounts" Categories="categories" Transaction="transaction" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (transactions.Count == 0)
+            {
+                <p class="empty">No transactions match these filters.</p>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? AccountId { get; set; }
+    [SupplyParameterFromQuery] public string? CategoryId { get; set; }
+    [SupplyParameterFromQuery] public string? From { get; set; }
+    [SupplyParameterFromQuery] public string? To { get; set; }
+
+    private IReadOnlyList<AccountBalanceView>? accounts;
+    private IReadOnlyList<CategoryView>? categories;
+    private IReadOnlyList<TransactionView>? transactions;
+
+    protected override void OnLedgerChanged() => Refresh();
+
+    protected override void OnParametersSet() => Refresh();
+
+    private void Refresh()
+    {
+        if (Ledger.Snapshot is null)
+        {
+            accounts = null;
+            categories = null;
+            transactions = null;
+            return;
+        }
+
+        accounts = LedgerViews.AccountsWithBalances(Ledger.Snapshot);
+        categories = LedgerViews.Categories(Ledger.Snapshot);
+        transactions = LedgerViews.Transactions(Ledger.Snapshot, new Dariten.Core.TransactionFilters
+        {
+            AccountId = AccountId,
+            CategoryId = CategoryId,
+            From = From,
+            To = To,
+        });
+    }
+
+    private async Task Export()
+    {
+        if (transactions is null)
+        {
+            return;
+        }
+
+        var csv = Finance.TransactionsToCsv(transactions.Select(row => new CsvTransaction(
+            row.Date,
+            row.Payee,
+            row.CategoryName,
+            row.AccountName,
+            row.AmountCents,
+            row.Memo ?? "")).ToList());
+        await Ledger.DownloadCsvAsync(csv);
+    }
+}

@@ -1,0 +1,99 @@
+<button type="button" class="@(Category is null ? "btn btn-primary" : "btn btn-ghost")" @onclick="Open">
+    @(Category is null ? "Add category" : "Edit")
+</button>
+
+<Modal Title="@(Category is null ? "New category" : "Edit category")" Open="open" Close="Close">
+    <form class="form-grid" @onsubmit="Save">
+        <div class="field">
+            <label for="@idName">Name</label>
+            <input id="@idName" @bind="name" required />
+        </div>
+        <div class="field">
+            <label for="@idGroup">Group</label>
+            <input id="@idGroup" list="category-groups" @bind="group" required />
+            <datalist id="category-groups">
+                @foreach (var known in Groups)
+                {
+                    <option value="@known" />
+                }
+            </datalist>
+        </div>
+        <label class="check">
+            <input type="checkbox" @bind="isIncome" />
+            This is an income category
+        </label>
+        @if (error is not null)
+        {
+            <p class="alert" role="alert">@error</p>
+        }
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" disabled="@pending">@(pending ? "Saving…" : "Save category")</button>
+            @if (Category is not null)
+            {
+                <button type="button" class="btn btn-danger" @onclick="Remove" disabled="@(Category.TransactionCount > 0)">Delete</button>
+            }
+        </div>
+    </form>
+</Modal>
+
+@code {
+    private static readonly string[] Groups = ["Income", "Housing", "Food", "Transport", "Lifestyle", "Health", "Transfers", "Other"];
+
+    [Parameter] public CategoryView? Category { get; set; }
+    [Inject] private LedgerService Ledger { get; set; } = default!;
+
+    private readonly string idName = "cat-name-" + Guid.NewGuid().ToString("N");
+    private readonly string idGroup = "cat-group-" + Guid.NewGuid().ToString("N");
+    private bool open;
+    private bool pending;
+    private string? error;
+    private string name = "";
+    private string group = "Other";
+    private bool isIncome;
+
+    private void Open()
+    {
+        error = null;
+        name = Category?.Name ?? "";
+        group = Category?.Group ?? "Other";
+        isIncome = Category?.IsIncome ?? false;
+        open = true;
+    }
+
+    private void Close() => open = false;
+
+    private async Task Save()
+    {
+        pending = true;
+        error = null;
+        var input = new CategoryInput(name, group, isIncome);
+        var result = Category is null
+            ? await Ledger.CreateCategoryAsync(input)
+            : await Ledger.UpdateCategoryAsync(Category.Id, input);
+        pending = false;
+        if (!result.Ok)
+        {
+            error = result.Error;
+            return;
+        }
+
+        open = false;
+    }
+
+    private async Task Remove()
+    {
+        if (Category is null || !await Ledger.ConfirmAsync($"Delete {Category.Name}?"))
+        {
+            return;
+        }
+
+        var result = await Ledger.DeleteCategoryAsync(Category.Id);
+        if (!result.Ok)
+        {
+            error = result.Error;
+            return;
+        }
+
+        open = false;
+    }
+}

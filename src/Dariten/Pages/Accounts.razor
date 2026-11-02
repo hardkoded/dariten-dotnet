@@ -1,0 +1,53 @@
+@page "/accounts"
+@inherits LedgerPage
+
+<div class="page page-narrow">
+    <div class="page-head">
+        <div>
+            <h1>Accounts</h1>
+            <p class="lede">Checking, savings, credit cards, and cash. Balances update from the register.</p>
+        </div>
+        @if (accounts is not null)
+        {
+            <AccountEditor />
+        }
+    </div>
+
+    @if (accounts is null)
+    {
+        <LedgerMessage Error="@Ledger.Error" Loading="@Ledger.IsLoading" />
+    }
+    else
+    {
+        <div class="account-list">
+            @foreach (var account in accounts)
+            {
+                <article class="panel account-row">
+                    <div>
+                        <p class="eyebrow">@AccountTypes.Label(account.Type)</p>
+                        <h2>@account.Name</h2>
+                        <p class="muted">@(account.Institution ?? "No institution") · @account.TransactionCount transactions</p>
+                    </div>
+                    <div class="row-actions">
+                        <div class="balance-block">
+                            <p class="eyebrow">Balance</p>
+                            <MoneyText Cents="account.BalanceCents" Tone="@(AccountTypes.IsLiability(account.Type) ? "liability" : "default")" />
+                        </div>
+                        <AccountEditor Account="account" />
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AccountBalanceView>? accounts;
+
+    protected override void OnLedgerChanged() => Refresh();
+
+    protected override void OnParametersSet() => Refresh();
+
+    private void Refresh() =>
+        accounts = Ledger.Snapshot is null ? null : LedgerViews.AccountsWithBalances(Ledger.Snapshot);
+}

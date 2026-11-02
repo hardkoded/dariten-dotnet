@@ -1,0 +1,26 @@
+{
+  "targets": [
+    {
+      "name": "web",
+      "platform": "web",
+      "app": {
+        "url": "http://127.0.0.1:5173"
+      }
+    }
+  ],
+  "timeout": 240000,
+  "launchTimeout": 60000,
+  "actionTimeout": 30000,
+  "assertionTimeout": 45000,
+  "agents": {
+    "default": {
+      "provider": "openai",
+      "model": "gpt-4.1-mini",
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "context": "Quicken Demo is a local personal-finance sample stored in this browser. Pages are Dashboard (/), Accounts (/accounts), Transactions (/transactions), Categories (/categories), and Budgets (/budgets). To add a transaction, click Add transaction, fill Date, Type (Expense or Income), Payee, Amount as a positive dollar amount, Account, Category, and optional Memo, then click Save transaction. To restore the starter household, click Reset sample data in the green banner, then Replace sample data. Do not invent payees other than the one the instruction names."
+    }
+  },
+  "cache": {
+    "dir": ".e2e/cache"
+  }
+}

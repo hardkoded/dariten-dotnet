@@ -1,0 +1,45 @@
+@if (Open)
+{
+    <div class="backdrop" @onclick="Close">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="@titleId" tabindex="-1" @ref="panel" @onclick:stopPropagation="true" @onkeydown="OnKey">
+            <div class="modal-head">
+                <h2 id="@titleId">@Title</h2>
+                <button type="button" class="btn btn-ghost" @onclick="Close">Close</button>
+            </div>
+            @ChildContent
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public EventCallback Close { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private readonly string titleId = "modal-" + Guid.NewGuid().ToString("N");
+    private ElementReference panel;
+    private bool focused;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Open && !focused)
+        {
+            focused = true;
+            await panel.FocusAsync();
+        }
+
+        if (!Open)
+        {
+            focused = false;
+        }
+    }
+
+    private async Task OnKey(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            await Close.InvokeAsync();
+        }
+    }
+}
