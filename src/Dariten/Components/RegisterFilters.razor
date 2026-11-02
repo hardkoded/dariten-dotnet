@@ -1,0 +1,67 @@
+@inject NavigationManager Navigation
+
+<form class="filters panel" @onsubmit="Apply">
+    <div class="field">
+        <label for="filter-account">Account</label>
+        <select id="filter-account" @bind="accountId">
+            <option value="">All accounts</option>
+            @foreach (var account in Accounts)
+            {
+                <option value="@account.Id">@account.Name</option>
+            }
+        </select>
+    </div>
+    <div class="field">
+        <label for="filter-category">Category</label>
+        <select id="filter-category" @bind="categoryId">
+            <option value="">All categories</option>
+            @foreach (var category in Categories)
+            {
+                <option value="@category.Id">@category.Name</option>
+            }
+        </select>
+    </div>
+    <div class="field">
+        <label for="filter-from">From</label>
+        <InputDate id="filter-from" @bind-Value="fromDate" />
+    </div>
+    <div class="field">
+        <label for="filter-to">To</label>
+        <InputDate id="filter-to" @bind-Value="toDate" />
+    </div>
+    <div class="filter-actions">
+        <button type="submit" class="btn btn-primary btn-block">Filter</button>
+    </div>
+</form>
+
+@code {
+    [Parameter] public IReadOnlyList<AccountBalanceView> Accounts { get; set; } = [];
+    [Parameter] public IReadOnlyList<CategoryView> Categories { get; set; } = [];
+    [Parameter] public string? AccountId { get; set; }
+    [Parameter] public string? CategoryId { get; set; }
+    [Parameter] public string? From { get; set; }
+    [Parameter] public string? To { get; set; }
+
+    private string accountId = "";
+    private string categoryId = "";
+    private DateOnly? fromDate;
+    private DateOnly? toDate;
+
+    protected override void OnParametersSet()
+    {
+        accountId = AccountId ?? "";
+        categoryId = CategoryId ?? "";
+        fromDate = DateOnly.TryParse(From, out var from) ? from : null;
+        toDate = DateOnly.TryParse(To, out var to) ? to : null;
+    }
+
+    private void Apply()
+    {
+        var query = new Dictionary<string, object?>();
+        if (!string.IsNullOrEmpty(accountId)) query["accountId"] = accountId;
+        if (!string.IsNullOrEmpty(categoryId)) query["categoryId"] = categoryId;
+        if (fromDate is { } from) query["from"] = from.ToString("yyyy-MM-dd");
+        if (toDate is { } to) query["to"] = to.ToString("yyyy-MM-dd");
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameters("/transactions", query));
+    }
+}

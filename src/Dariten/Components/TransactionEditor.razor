@@ -1,0 +1,160 @@
+<button type="button" class="@(Transaction is null ? "btn btn-primary" : "btn btn-ghost")" @onclick="Open">
+    @(Transaction is null ? "Add transaction" : "Edit")
+</button>
+
+<Modal Title="@(Transaction is null ? "New transaction" : "Edit transaction")" Open="open" Close="Close">
+    <form class="form-grid" @onsubmit="Save">
+        <div class="two">
+            <div class="field">
+                <label for="@idDate">Date</label>
+                <InputDate id="@idDate" @bind-Value="date" />
+            </div>
+            <div class="field">
+                <label for="@idFlow">Type</label>
+                <select id="@idFlow" @bind="flow">
+                    <option value="out">Expense</option>
+                    <option value="in">Income</option>
+                </select>
+            </div>
+        </div>
+        <div class="field">
+            <label for="@idPayee">Payee</label>
+            <input id="@idPayee" @bind="payee" required />
+        </div>
+        <div class="two">
+            <div class="field">
+                <label for="@idAmount">Amount</label>
+                <input id="@idAmount" @bind="amount" required />
+            </div>
+            <div class="field">
+                <label for="@idAccount">Account</label>
+                <select id="@idAccount" @bind="accountId">
+                    @foreach (var account in Accounts)
+                    {
+                        <option value="@account.Id">@account.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="field">
+            <label for="@idCategory">Category</label>
+            <select id="@idCategory" @bind="categoryId">
+                @foreach (var group in Categories.GroupBy(category => category.Group))
+                {
+                    <optgroup label="@group.Key">
+                        @foreach (var category in group)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    </optgroup>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label for="@idMemo">Memo</label>
+            <input id="@idMemo" @bind="memo" />
+        </div>
+        @if (error is not null)
+        {
+            <p class="alert" role="alert">@error</p>
+        }
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" disabled="@pending">@(pending ? "Saving…" : "Save transaction")</button>
+            @if (Transaction is not null)
+            {
+                <button type="button" class="btn btn-danger" @onclick="Remove">Delete</button>
+            }
+        </div>
+    </form>
+</Modal>
+
+@code {
+    [Parameter] public IReadOnlyList<AccountBalanceView> Accounts { get; set; } = [];
+    [Parameter] public IReadOnlyList<CategoryView> Categories { get; set; } = [];
+    [Parameter] public TransactionView? Transaction { get; set; }
+    [Inject] private LedgerService Ledger { get; set; } = default!;
+
+    private readonly string suffix = Guid.NewGuid().ToString("N");
+    private string idDate => "txn-date-" + suffix;
+    private string idFlow => "txn-flow-" + suffix;
+    private string idPayee => "txn-payee-" + suffix;
+    private string idAmount => "txn-amount-" + suffix;
+    private string idAccount => "txn-account-" + suffix;
+    private string idCategory => "txn-category-" + suffix;
+    private string idMemo => "txn-memo-" + suffix;
+
+    private bool open;
+    private bool pending;
+    private string? error;
+    private DateOnly? date;
+    private string flow = "out";
+    private string payee = "";
+    private string amount = "";
+    private string accountId = "";
+    private string categoryId = "";
+    private string memo = "";
+
+    private void Open()
+    {
+        error = null;
+        if (Transaction is null)
+        {
+            date = DateOnly.FromDateTime(DateTime.UtcNow);
+            flow = "out";
+            payee = "";
+            amount = "";
+            memo = "";
+            accountId = Accounts.FirstOrDefault()?.Id ?? "";
+            categoryId = Categories.FirstOrDefault(category => !category.IsIncome)?.Id ?? Categories.FirstOrDefault()?.Id ?? "";
+        }
+        else
+        {
+            date = DateOnly.Parse(Transaction.Date);
+            flow = Transaction.AmountCents >= 0 ? "in" : "out";
+            payee = Transaction.Payee;
+            amount = Money.CentsToDollarInput(Math.Abs(Transaction.AmountCents));
+            memo = Transaction.Memo ?? "";
+            accountId = Transaction.AccountId;
+            categoryId = Transaction.CategoryId;
+        }
+
+        open = true;
+    }
+
+    private void Close() => open = false;
+
+    private async Task Save()
+    {
+        pending = true;
+        error = null;
+        var input = new TransactionInput(date?.ToString("yyyy-MM-dd") ?? "", payee, accountId, categoryId, amount, flow, memo);
+        var result = Transaction is null
+            ? await Ledger.CreateTransactionAsync(input)
+            : await Ledger.UpdateTransactionAsync(Transaction.Id, input);
+        pending = false;
+        if (!result.Ok)
+        {
+            error = result.Error;
+            return;
+        }
+
+        open = false;
+    }
+
+    private async Task Remove()
+    {
+        if (Transaction is null || !await Ledger.ConfirmAsync("Delete this transaction?"))
+        {
+            return;
+        }
+
+        var result = await Ledger.DeleteTransactionAsync(Transaction.Id);
+        if (!result.Ok)
+        {
+            error = result.Error;
+            return;
+        }
+
+        open = false;
+    }
+}

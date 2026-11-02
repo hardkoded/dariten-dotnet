@@ -1,0 +1,139 @@
+﻿@page "/"
+@inherits LedgerPage
+
+<div class="page">
+    <div>
+        <p class="kicker">@CalendarDates.FormatMonthLabel(data?.Month ?? CalendarDates.CurrentMonth())</p>
+        <h1>Dashboard</h1>
+        <p class="lede">A snapshot of this browser's sample household: net worth, this month's cash flow, and recent activity.</p>
+    </div>
+
+    @if (data is null)
+    {
+        <LedgerMessage Error="@Ledger.Error" Loading="@Ledger.IsLoading" />
+    }
+    else
+    {
+        <section class="stats">
+            <article class="card">
+                <p class="label">Net worth</p>
+                <p class="figure"><MoneyText Cents="data.NetWorthCents" /></p>
+                <p class="hint">All account balances combined</p>
+            </article>
+            <article class="card">
+                <p class="label">Income this month</p>
+                <p class="figure moss"><MoneyText Cents="data.IncomeCents" /></p>
+                <p class="hint">Inflows across every account</p>
+            </article>
+            <article class="card">
+                <p class="label">Spending this month</p>
+                <p class="figure coral"><MoneyText Cents="data.SpendingCents" /></p>
+                <p class="hint">Outflows, shown as a positive total</p>
+            </article>
+            <article class="card">
+                <p class="label preserve">Savings rate</p>
+                <p class="figure moss">@data.SavingsRatePercent%</p>
+                <p class="hint">(Income − spending) ÷ income this month. 0% when there is no income.</p>
+            </article>
+        </section>
+
+        <section class="split">
+            <div class="panel">
+                <div class="section-head">
+                    <h2>Accounts</h2>
+                    <a href="accounts">Manage</a>
+                </div>
+                <div class="account-grid">
+                    @foreach (var account in data.Accounts)
+                    {
+                        <article class="account-tile">
+                            <p class="eyebrow">@AccountTypes.Label(account.Type)</p>
+                            <h3>@account.Name</h3>
+                            <p class="balance">
+                                <MoneyText Cents="account.BalanceCents" Tone="@(AccountTypes.IsLiability(account.Type) ? "liability" : "default")" />
+                            </p>
+                            @if (account.Institution is not null)
+                            {
+                                <p class="tiny muted">@account.Institution</p>
+                            }
+                        </article>
+                    }
+                </div>
+            </div>
+            <div class="panel">
+                <div class="section-head">
+                    <h2>Spending snapshot</h2>
+                    <a href="budgets">Budgets</a>
+                </div>
+                <div class="bars">
+                    @if (topSpending.Count == 0)
+                    {
+                        <p class="muted">No expenses recorded this month.</p>
+                    }
+                    else
+                    {
+                        @foreach (var item in topSpending)
+                        {
+                            <div>
+                                <div class="bar-label">
+                                    <span>@item.Name</span>
+                                    <MoneyText Cents="item.AmountCents" />
+                                </div>
+                                <div class="track" aria-hidden="true">
+                                    <span style="width: @(Math.Max(8, item.AmountCents * 100 / maxSpend))%"></span>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </section>
+
+        <section class="panel table-wrap">
+            <div class="section-head" style="padding: 1.2rem 1.2rem 0.4rem;">
+                <h2>Recent transactions</h2>
+                <a href="transactions">View all</a>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Payee</th>
+                        <th>Category</th>
+                        <th>Account</th>
+                        <th class="num">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var transaction in data.Recent)
+                    {
+                        <tr>
+                            <td class="muted">@CalendarDates.FormatDateOnly(transaction.Date)</td>
+                            <td>@transaction.Payee</td>
+                            <td>@transaction.CategoryName</td>
+                            <td>@transaction.AccountName</td>
+                            <td class="num"><MoneyText Cents="transaction.AmountCents" Tone="signed" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    }
+</div>
+
+@code {
+    private DashboardData? data;
+    private IReadOnlyList<SpendingSlice> topSpending = [];
+    private int maxSpend = 1;
+
+    protected override void OnLedgerChanged() => Refresh();
+
+    protected override void OnParametersSet() => Refresh();
+
+    private void Refresh()
+    {
+        data = Ledger.Snapshot is null ? null : LedgerViews.Dashboard(Ledger.Snapshot);
+        topSpending = data?.Spending.Take(6).ToList() ?? [];
+        maxSpend = topSpending.Count == 0 ? 1 : Math.Max(1, topSpending[0].AmountCents);
+    }
+}

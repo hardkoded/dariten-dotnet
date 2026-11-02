@@ -1,0 +1,108 @@
+<button type="button" class="@(Account is null ? "btn btn-primary" : "btn btn-ghost")" @onclick="Open">
+    @(Account is null ? "Add account" : "Edit")
+</button>
+
+<Modal Title="@(Account is null ? "New account" : "Edit account")" Open="open" Close="Close">
+    <form class="form-grid" @onsubmit="Save">
+        <div class="field">
+            <label for="@idName">Name</label>
+            <input id="@idName" @bind="name" required />
+        </div>
+        <div class="field">
+            <label for="@idType">Type</label>
+            <select id="@idType" @bind="type">
+                @foreach (var accountType in AccountTypes.All)
+                {
+                    <option value="@accountType">@AccountTypes.Label(accountType)</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label for="@idInstitution">Institution</label>
+            <input id="@idInstitution" @bind="institution" />
+        </div>
+        <div class="field">
+            <label for="@idBalance">Opening balance</label>
+            <input id="@idBalance" @bind="openingBalance" required />
+            <p class="tiny muted">Credit cards can start negative if you already owe a balance.</p>
+        </div>
+        @if (error is not null)
+        {
+            <p class="alert" role="alert">@error</p>
+        }
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" disabled="@pending">@(pending ? "Saving…" : "Save account")</button>
+            @if (Account is not null)
+            {
+                <button type="button" class="btn btn-danger" @onclick="Remove">Delete</button>
+            }
+        </div>
+    </form>
+</Modal>
+
+@code {
+    [Parameter] public AccountBalanceView? Account { get; set; }
+    [Inject] private LedgerService Ledger { get; set; } = default!;
+
+    private readonly string idName = Id("name");
+    private readonly string idType = Id("type");
+    private readonly string idInstitution = Id("inst");
+    private readonly string idBalance = Id("bal");
+
+    private bool open;
+    private bool pending;
+    private string? error;
+    private string name = "";
+    private string type = AccountTypes.Checking;
+    private string institution = "";
+    private string openingBalance = "0.00";
+
+    private void Open()
+    {
+        error = null;
+        name = Account?.Name ?? "";
+        type = Account?.Type ?? AccountTypes.Checking;
+        institution = Account?.Institution ?? "";
+        openingBalance = Account is null ? "0.00" : Money.CentsToDollarInput(Account.OpeningBalanceCents);
+        open = true;
+    }
+
+    private void Close() => open = false;
+
+    private async Task Save()
+    {
+        pending = true;
+        error = null;
+        var input = new AccountInput(name, type, institution, openingBalance);
+        var result = Account is null
+            ? await Ledger.CreateAccountAsync(input)
+            : await Ledger.UpdateAccountAsync(Account.Id, input);
+        pending = false;
+        if (!result.Ok)
+        {
+            error = result.Error;
+            return;
+        }
+
+        open = false;
+    }
+
+    private async Task Remove()
+    {
+        if (Account is null || !await Ledger.ConfirmAsync($"Delete {Account.Name}?"))
+        {
+            return;
+        }
+
+        var result = await Ledger.DeleteAccountAsync(Account.Id);
+        if (!result.Ok)
+        {
+            error = result.Error;
+            return;
+        }
+
+        open = false;
+    }
+
+    private static string Id(string name) => name + "-" + Guid.NewGuid().ToString("N");
+}

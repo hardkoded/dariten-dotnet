@@ -1,0 +1,38 @@
+﻿@inherits LayoutComponentBase
+@inject LedgerService Ledger
+@implements IDisposable
+
+<div class="shell">
+    <DemoBanner />
+    <div class="frame">
+        <aside class="sidebar">
+            <a class="brand" href="">
+                <strong>Quicken Demo</strong>
+                <span>Personal ledger</span>
+            </a>
+            <NavMenu CssClass="nav" />
+            <p class="sidebar-note">
+                Saved in this browser. Balances include opening amounts plus every transaction. Use Reset sample data to restore the starter household.
+            </p>
+        </aside>
+        <div class="workspace">
+            <header class="mobile-bar">
+                <a href="">Quicken Demo</a>
+            </header>
+            <NavMenu CssClass="mobile-nav" />
+            <main>
+                @Body
+            </main>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized() => Ledger.Changed += HandleChanged;
+
+    protected override Task OnInitializedAsync() => Ledger.EnsureLoadedAsync();
+
+    private void HandleChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Ledger.Changed -= HandleChanged;
+}

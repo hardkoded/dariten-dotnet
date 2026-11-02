@@ -1,0 +1,13 @@
+<span class="money @Css">@Money.FormatCents(Cents)</span>
+
+@code {
+    [Parameter] public int Cents { get; set; }
+    [Parameter] public string Tone { get; set; } = "default";
+
+    private string Css => Tone switch
+    {
+        "signed" => Cents < 0 ? "money-neg" : "money-pos",
+        "liability" when Cents < 0 => "money-neg",
+        _ => "",
+    };
+}

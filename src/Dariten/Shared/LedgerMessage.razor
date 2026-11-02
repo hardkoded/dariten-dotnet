@@ -1,0 +1,13 @@
+@if (Error is not null)
+{
+    <p class="alert" role="alert">@Error</p>
+}
+else if (Loading)
+{
+    <p class="muted">Loading the ledger…</p>
+}
+
+@code {
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public bool Loading { get; set; }
+}

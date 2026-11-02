@@ -1,0 +1,12 @@
+﻿<nav class="@CssClass" aria-label="Primary">
+    <NavLink href="" Match="NavLinkMatch.All">Dashboard</NavLink>
+    <NavLink href="accounts">Accounts</NavLink>
+    <NavLink href="transactions">Transactions</NavLink>
+    <NavLink href="categories">Categories</NavLink>
+    <NavLink href="budgets">Budgets</NavLink>
+</nav>
+
+@code {
+    [Parameter]
+    public string CssClass { get; set; } = "nav";
+}

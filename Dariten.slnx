@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Dariten.Core/Dariten.Core.csproj" />
+    <Project Path="src/Dariten/Dariten.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Dariten.E2E/Dariten.E2E.csproj" />
+    <Project Path="tests/Dariten.Unit/Dariten.Unit.csproj" />
+  </Folder>
+</Solution>

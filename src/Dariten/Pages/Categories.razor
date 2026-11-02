@@ -1,0 +1,52 @@
+@page "/categories"
+@inherits LedgerPage
+
+<div class="page page-narrow">
+    <div class="page-head">
+        <div>
+            <h1>Categories</h1>
+            <p class="lede">A starter chart of accounts. Rename groups, add categories, or retire unused ones.</p>
+        </div>
+        @if (categories is not null)
+        {
+            <CategoryEditor />
+        }
+    </div>
+
+    @if (categories is null)
+    {
+        <LedgerMessage Error="@Ledger.Error" Loading="@Ledger.IsLoading" />
+    }
+    else
+    {
+        <div class="stack">
+            @foreach (var group in categories.Select(category => category.Group).Distinct())
+            {
+                <section class="panel group">
+                    <h2>@group</h2>
+                    @foreach (var category in categories.Where(category => category.Group == group))
+                    {
+                        <div class="category-row">
+                            <div>
+                                <p>@category.Name</p>
+                                <p class="tiny muted">@(category.IsIncome ? "Income" : "Expense") · @category.TransactionCount transactions</p>
+                            </div>
+                            <CategoryEditor Category="category" />
+                        </div>
+                    }
+                </section>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<CategoryView>? categories;
+
+    protected override void OnLedgerChanged() => Refresh();
+
+    protected override void OnParametersSet() => Refresh();
+
+    private void Refresh() =>
+        categories = Ledger.Snapshot is null ? null : LedgerViews.Categories(Ledger.Snapshot);
+}
