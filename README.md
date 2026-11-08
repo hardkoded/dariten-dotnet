@@ -64,7 +64,7 @@ dotnet test tests/Dariten.Unit/Dariten.Unit.csproj
 
 ## End-to-end tests
 
-The E2E project starts `dotnet run` for the Blazor app on a free loopback port before the tests, then stops it when the run ends. [E2E 0.7.0](https://www.nuget.org/packages/E2E) does not launch an `app.command` from `e2e.config.json`, so `tests/Dariten.E2E/AppCommands.cs` owns that process. Set `E2E_BASE_URL` to skip the launch and use a server that is already running.
+The E2E project starts `dotnet run` for the Blazor app on a free loopback port before the tests, then stops it when the run ends. [E2E 0.9.0](https://www.nuget.org/packages/E2E) does not launch an `app.command` from `e2e.config.json`, so `tests/Dariten.E2E/AppCommands.cs` owns that process. Set `E2E_BASE_URL` to skip the launch and use a server that is already running.
 
 ```bash
 dotnet test tests/Dariten.E2E/Dariten.E2E.csproj
@@ -111,6 +111,19 @@ export OPENAI_BASE_URL=http://127.0.0.1:11434/v1
 export E2E_MODEL=llama3.1
 dotnet test tests/Dariten.E2E/Dariten.E2E.csproj
 ```
+
+### Reporters (E2E 0.9.0)
+
+`tests/Dariten.E2E/RunReporting.cs` is the run fixture that calls the reporters listed in `e2e.config.json` when the run ends.
+
+| Reporter | What it does |
+| --- | --- |
+| `report.json` | Always written to `tests/Dariten.E2E/.e2e/report.json`. Every other reporter reads it. |
+| `LiveEventReporter` | Watches `RunEvent`s as they happen and prints a line per test, then an `Events` summary row. |
+| `MarkdownFileReporter` | Renders the run with `MarkdownReport.RenderMarkdownReport` to `.e2e/report.md`. |
+| `E2E.GitHub.GitHubReporter` | On GitHub Actions, writes the job summary and posts one pull request comment, then edits it on the next run. Needs `GITHUB_TOKEN` and `pull-requests: write`. Does nothing elsewhere. |
+
+The workflow is `.github/workflows/e2e.yml`. Run only what failed last time with `E2E_LAST_FAILED=1 dotnet test tests/Dariten.E2E/Dariten.E2E.csproj`. The GitHub comment then shows the whole suite, not just the rerun.
 
 Docs: [https://www.hardkoded.com/e2e-dotnet/](https://www.hardkoded.com/e2e-dotnet/) and [https://github.com/hardkoded/e2e-dotnet](https://github.com/hardkoded/e2e-dotnet).
 

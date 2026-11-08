@@ -1,0 +1,57 @@
+name: E2E
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# E2E.GitHub posts one pull request comment per run and keeps it current.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    name: Browser tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - run: dotnet build tests/Dariten.E2E/Dariten.E2E.csproj -c Release
+
+      # Playwright downloads browsers on first use. Cache them between runs.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj') }}
+
+      - run: pwsh tests/Dariten.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Run e2e
+        run: dotnet test tests/Dariten.E2E/Dariten.E2E.csproj -c Release --no-build
+        env:
+          # GitHubReporter reads this when the run ends. Without it the job summary is still written.
+          GITHUB_TOKEN: ${{ github.token }}
+          # Matrix jobs share one comment unless each has its own key. Overrides "key" in e2e.config.json.
+          E2E_GITHUB_KEY: web
+          # Optional: the agent test is ignored without a key.
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      # The comment's evidence links open the run's Artifacts section, so upload even when a retry passed.
+      - name: Upload artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            tests/Dariten.E2E/.e2e/results
+            tests/Dariten.E2E/.e2e/report.md
+          if-no-files-found: ignore

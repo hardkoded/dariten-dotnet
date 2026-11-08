@@ -22,5 +22,15 @@
   },
   "cache": {
     "dir": ".e2e/cache"
-  }
+  },
+  "reporters": [
+    "Dariten.E2E.LiveEventReporter, Dariten.E2E",
+    "Dariten.E2E.MarkdownFileReporter, Dariten.E2E",
+    {
+      "type": "E2E.GitHub.GitHubReporter, E2E.GitHub",
+      "options": {
+        "key": "web"
+      }
+    }
+  ]
 }
