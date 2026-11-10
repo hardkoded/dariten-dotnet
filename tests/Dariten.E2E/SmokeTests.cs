@@ -74,6 +74,16 @@ public sealed class SmokeTests : E2ETest
         await Expect.That(Screen.GetByText("SpotHero")).ToBeVisibleAsync();
     }
 
+    // Demo only: fails on the first attempt and passes on the retry, to see how the GitHub report shows a flaky test.
+    [Test]
+    [Retry(2)]
+    public async Task Flaky_demo_passes_only_on_retry()
+    {
+        await App.OpenAsync("/");
+        await Expect.That(Screen.GetByRole("heading", "Dashboard")).ToBeVisibleAsync();
+        Assert.That(NUnit.Framework.TestContext.CurrentContext.CurrentRepeatCount, Is.GreaterThan(0), "Simulated flake: first attempt fails.");
+    }
+
     [Test]
     [Category("RealModel")]
     public async Task Agent_adds_a_transaction()
